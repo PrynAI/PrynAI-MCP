@@ -10,13 +10,15 @@ from mcp.server.fastmcp.prompts import base
 import logging, json, sys
 from .redis_client import ensure_redis
 import os, json
+from .config import settings
+
 DEPLOY = os.getenv("PRYNAI_ENV", "local")
 BUILD  = os.getenv("PRYNAI_BUILD", "dev")
 
 # --------------------------------------------------------------------
 # PrynAI MCP — Phase 0 (local, no auth). Streamable HTTP transport.
 # Run:  python -m prynai_mcp.server
-# URL:  http://127.0.0.1:8000/mcp
+# URL:  http://127.0.0.1:8000/mcp ,https://127.0.0.1:8003/mcp
 # --------------------------------------------------------------------
 
 mcp = FastMCP(name="PrynAI MCP")
@@ -105,7 +107,13 @@ async def counter_value() -> str:
 
 @mcp.resource("prynai://server-info")
 def server_info() -> str:
-    return json.dumps({"deployment": DEPLOY, "build": BUILD})
+    return json.dumps({
+        "deployment": os.getenv("PRYNAI_ENV", "local"),
+        "build": os.getenv("PRYNAI_BUILD", "dev"),
+        "auth_required": settings.AUTH_REQUIRED,
+        "issuer": settings.issuer,
+        "audiences": (settings.ENTRA_AUDIENCES or "").split(",") if settings.ENTRA_AUDIENCES else [],
+    })
 
 # ----------------------- Prompts ------------------------------------
 

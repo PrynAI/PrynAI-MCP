@@ -15,4 +15,13 @@ RUN pip install --no-cache-dir --upgrade pip \
 
 EXPOSE 8000
 ENV REDIS_URL=redis://redis:6379/0
-CMD ["uvicorn", "prynai_mcp.app:app", "--host", "0.0.0.0", "--port", "8000", "--lifespan", "on"]
+#CMD ["uvicorn", "prynai_mcp.app:app", "--host", "0.0.0.0", "--port", "8000", "--lifespan", "on"]
+
+# infra/docker/Dockerfile (replace CMD)
+EXPOSE 8000 8443
+CMD ["sh", "-lc", "\
+    if [ -n \"$SSL_CERTFILE\" ] && [ -n \"$SSL_KEYFILE\" ]; then \
+    uvicorn prynai_mcp.app:app --host 0.0.0.0 --port 8443 --lifespan on --ssl-certfile $SSL_CERTFILE --ssl-keyfile $SSL_KEYFILE; \
+    else \
+    uvicorn prynai_mcp.app:app --host 0.0.0.0 --port 8000 --lifespan on; \
+    fi"]

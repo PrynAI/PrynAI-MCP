@@ -13,10 +13,23 @@ services:
       context: .
       dockerfile: infra/docker/Dockerfile
     environment:
-      - REDIS_URL=redis://redis:6379/0
+      - REDIS_URL=${REDIS_URL}
       - PRYNAI_ENV=container
       - PRYNAI_BUILD=${GIT_COMMIT:-local}
+      - AUTH_REQUIRED=true               # enforce OAuth
+      - ENTRA_TENANT_ID=${ENTRA_TENANT_ID}
+      - ENTRA_AUDIENCES=${SERVER_APP_ID} # or the server app's client-id
+      # Optional scope/role checks:
+      # - ENTRA_REQUIRED_SCOPES=Mcp.Invoke
+      # - ENTRA_REQUIRED_APP_ROLES=Mcp.Invoke
+      # HTTPS (optional)
+      # Comment these lines to serve HTTP on 8000 instead
+      - SSL_CERTFILE=/certs/127.0.0.1+1.pem
+      - SSL_KEYFILE=/certs/127.0.0.1+1-key.pem
+    volumes:
+      - ./certs:/certs:ro
     ports:
+      - "8443:8443"    # HTTPS
       - "8000:8000"
     depends_on:
       - redis

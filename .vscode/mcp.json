@@ -1,0 +1,20 @@
+{
+    "inputs": [
+        {
+            "id": "token",
+            "type": "promptString",
+            "title": "Paste an access token",
+            "description": "Get a token via MSAL client credentials",
+            "password": true
+        }
+    ],
+    "servers": {
+        "PrynAI MCP": {
+            "type": "http",
+            "url": "https://127.0.0.1:8443/mcp",
+            "headers": {
+                "Authorization": "Bearer ${input:token}"
+            }
+        }
+    }
+}

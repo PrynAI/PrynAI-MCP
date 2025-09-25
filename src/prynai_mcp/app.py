@@ -3,6 +3,7 @@ from starlette.middleware.cors import CORSMiddleware
 from .redis_client import ensure_redis, close_redis
 from .config import settings
 from .server import mcp
+from .auth.middleware import BearerAuthMiddleware
 
 app = mcp.streamable_http_app()
 
@@ -27,6 +28,9 @@ async def healthz(request):
 @app.route("/livez")
 async def livez(request):
     return JSONResponse({"status": "ok"})
+
+# --- Order matters: auth first, then CORS ---
+app.add_middleware(BearerAuthMiddleware)
 
 app.add_middleware(
     CORSMiddleware,

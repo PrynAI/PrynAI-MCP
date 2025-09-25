@@ -1,0 +1,13 @@
+Phase 3: Entra ID OAuth2 + HTTPS for PrynAI MCP
+
+Secure /mcp with Bearer auth (Microsoft Entra ID) and optional HTTPS.
+
+• Add auth/azure_oauth.py: JWKS-based JWT validation, issuer/audience checks, optional scopes/roles.
+• Add auth/middleware.py: enforce Bearer on /mcp; health endpoints open; attach claims.
+• app.py: plug middleware; keep Redis/CORS/health; lifespan intact.
+• redis_client.py: lazy ensure_redis(); robust startup.
+• Dockerfile: conditional SSL via SSL_CERTFILE/SSL_KEYFILE; expose 8443.
+• docker-compose.yml: AUTH_REQUIRED, ENTRA_* envs; optional cert mount; ports.
+• examples/smoke_oauth_cc.py: MSAL client-credentials smoke.
+• README: Phase 3 section; troubleshooting.
+• Fix: return 401 on auth failures instead of 500.

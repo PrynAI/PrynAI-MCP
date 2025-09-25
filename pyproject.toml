@@ -1,0 +1,14 @@
+[project]
+name = "prynai-mcp"
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = [
+  "mcp[cli]>=1.9.0", # official SDK with FastMCP + Streamable HTTP
+  "pydantic-settings>=2.3",
+  "redis>=5.0.4",
+  "starlette>=0.37",
+  "uvicorn>=0.30",
+]
+
+[project.scripts]
+prynai-mcp = "prynai_mcp.server:main"

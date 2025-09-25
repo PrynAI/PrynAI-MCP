@@ -1,0 +1,25 @@
+version: "3.9"
+services:
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    ports:
+      - "6379:6379"
+
+  mcp:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - PRYNAI_ENV=container
+      - PRYNAI_BUILD=${GIT_COMMIT:-local}
+    ports:
+      - "8000:8000"
+    depends_on:
+      - redis
+
+volumes:
+  redisdata:

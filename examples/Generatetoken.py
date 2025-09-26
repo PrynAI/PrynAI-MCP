@@ -25,7 +25,7 @@ token = result["access_token"]
 decoded = jwt.decode(token, options={"verify_signature": False})
 
 print("Access Token:", token)
-print("aud:", decoded.get("aud"))
-print("iss:", decoded.get("iss"))
-print("roles:", decoded.get("roles"))
+# print("aud:", decoded.get("aud"))
+# print("iss:", decoded.get("iss"))
+# print("roles:", decoded.get("roles"))
 

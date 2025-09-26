@@ -1,0 +1,2 @@
+[console_scripts]
+prynai-mcp = prynai_mcp.server:main

@@ -1,480 +1,338 @@
 # PrynAI MCP — Self-hosted MCP Server
 
-Python MCP server with Streamable HTTP transport. Local first. Dockerized with Redis for state. Built to scale out later on Azure.
+Production-ready **Model Context Protocol (MCP)** server plus client examples that show how to:
+- Run locally and in Docker
+- Deploy to **Azure Container Apps (ACA)** behind **Entra ID (OAuth2 client credentials)**
+- Use **Azure Cache for Redis** for state
+- Call MCP tools/resources/prompts from **LangGraph** and **LangChain** agents
+- Roll out new server revisions safely (blue/green via ACA revisions)
 
-## Stack
+> 📚 Step-by-step guides live in [`/docs`](./docs): [Phase 1](./docs/phase1.md) · [Phase 2](./docs/phase2.md) · [Phase 3](./docs/phase3.md) · [Phase 4](./docs/phase4.md) · [Phase 5](./docs/phase5.md)
 
-- Python 3.12+
-- [`mcp` Python SDK]
-- Starlette + Uvicorn
-- Redis (for Phase 2)
-- Docker Compose
+---
 
 ## Repo layout
 
-src/prynai_mcp/
-server.py # FastMCP server (tools, resources, prompts, sampling, logging, notifications)
-app.py # ASGI app (SHTTP + /healthz + /livez), container entry
-config.py # settings (REDIS_URL, CORS)
-redis_client.py # lazy Redis init
-examples/
-smoke_http.py
-smoke_http_phase1.py
-infra/docker/
-Dockerfile
-docker-compose.yml
+.
+├─ server.py # MCP server (tools/resources/prompts)
+├─ src/prynai/mcp_core.py # Client helpers: auth, MCP sessions, LangChain tools
+├─ examples/ # Smoke tests for each phase
+│ ├─ smoke_oauth_ccACADeployment.py
+│ ├─ phase5_langgraph_smoke.py
+│ ├─ phase5_langchain_create_agent_alltools_smoke.py
+│ ├─ use_core_list_tools.py
+│ └─ use_core_langchain_agent.py
+├─ infra/
+│ ├─ docker/Dockerfile
+│ ├─ docker-compose.yml
+│ └─ azure/
+│ ├─ deploy_aca.ps1 # First-time deploy (env + app)
+│ └─ deploy_update.ps1 # Remote build in ACR + new ACA revision + traffic
+├─ docs/ # Phase guides
+└─ .env.example # Sample environment
 
 
-## Prereqs
+---
 
-- Python and `uv` (or pip)
-- Docker Desktop
+## Features
+
+- ✅ MCP Server (HTTP streamable) with example tools: `add`, `echo`, `long_task`, `bump_counter`, `summarize_via_client_llm`
+- ✅ MCP resources (e.g., `prynai://status`, `prynai://counter`)
+- ✅ MCP prompts (e.g., `quick_summary`)
+- ✅ OAuth2 (Entra ID client credentials) on `/mcp`
+- ✅ Redis-backed state (counter)
+- ✅ ACA deployment with **remote image builds** in ACR and **multi-revision** rollouts
+- ✅ LangGraph + LangChain agents that auto-discover MCP tools
 
 ---
 
 ## Quick start
 
-Local:
+### 1) Clone & create env
 ```bash
-uv venv
-uv pip install -e .
-uv run python -m prynai_mcp.server   # serves http://127.0.0.1:8000/mcp
-uv run python examples/smoke_http.py
+git clone https://github.com/PrynAI/PrynAI-MCP.git
+cd PrynAI-MCP
+cp .env.example .env
+# Fill in: PRYNAI_MCP_URL, ENTRA_* , SERVER_APP_ID_URI, OPENAI_API_KEY/OPENAI_MODEL, REDIS_*
+```
+
+### 2) Run locally (Python)
+
+```
+uv sync
+uv run python examples/use_core_list_tools.py
+uv run python examples/use_core_langchain_agent.py
+```
+
+## Deploy to Azure Container Apps
+
+### First-time (creates env, app, wiring): see docs/phase4.md
+
+### Updates (safe remote build + new revision):
+
+# From repo root
+.\infra\azure\deploy_update.ps1
+# Script prints preview FQDN; smoke test it, then promote 100% traffic (also printed).
+
+## Versioning & releases
+
+- Tags: MAJOR.MINOR.PATCH-qualifier (e.g., 0.5.0-phase5)
+
+- Create annotated tags and optional GitHub Releases.
+
+- Deployment scripts accept -Tag to pin the image.
+
+## Contributing
+
+- Fork & create a feature branch.
+
+- Add/modify tools in server.py (sync or async are supported).
+
+- Add tests/smoke in examples/.
+
+- Run ruff/black (if configured) and uv run smoke tests.
+
+-Open a PR with a clear description.
+
+⚠️ Never commit secrets. .env is local only.
+
+## Support
+
+- Issues: GitHub Issues
+
+- Security: security@ (responsible disclosure)
 
 
-Docker + Redis:
+---
 
-docker compose up -d --build
-curl http://127.0.0.1:8000/healthz
+### `docs/phase1.md`
+
+```markdown
+# Phase 1 — Local MCP server & first tool
+
+## Goal
+Run the MCP server locally, expose a health check, and implement basic tools/resources/prompts.
+
+## What you get
+- `server.py` with tools: `add`, `echo`
+- Resource: `prynai://status`
+- Prompt: `quick_summary` (simple template)
+- Local smoke tests under `examples/`
+
+## Prereqs
+- Python 3.11+ and `uv`
+- (Optional) Docker if you prefer containers
+
+## Setup
+```bash
+cp .env.example .env
+# For Phase 1 local runs you can temporarily leave OAuth off or point to dev values.
+uv sync
+```
+
+### Run
+
+```
 uv run python examples/smoke_http_phase1.py
+# Lists tools via HTTP stream to /mcp (no OAuth in this phase)
 
-
-VS Code Copilot Agent Mode (MCP):
-
-// .vscode/mcp.json
-{
-  "servers": {
-    "prynai-mcp": { "type": "http", "url": "http://127.0.0.1:8000/mcp" }
-  }
-}
-
-Phase 0 — Bootstrap (local, no auth)
-
-Outcome
-
-Runnable MCP server at /mcp using Streamable HTTP.
-
-Features: tools, resources, prompts, sampling hook, logging, notifications.
-
-What we built
-
-server.py with tools add, echo, long_task, summarize_via_client_llm.
-
-Resources: prynai://status, hello://{name}.
-
-Prompt: quick_summary.
-
-
-Run
-
-uv run python -m prynai_mcp.server
-uv run python examples/smoke_http.py
-
-
-Expected result
-
-TOOLS: ['add','echo','long_task','summarize_via_client_llm']
-RESOURCES: ['prynai://status']
-PROMPTS: ['quick_summary']
-STATUS: ok
-ADD RESULT: 5
-LONG_TASK: done
-SAMPLING: sampling unavailable   # expected unless the client provides a sampler
-
-
-Phase 1 — Feature-complete surface (local)
-
-Outcome
-
-Resource subscriptions and update notifications.
-
-Richer prompt structure.
-
-Sampling-backed “completions” path (mockable).
-
-Structured log notifications via ctx.info/warning.
-
-What we added
-
-Resource prynai://counter plus tool bump_counter that notifies updates.
-
-Prompt returns structured messages.
-
-Sampling path via create_message(...) with graceful fallback.
-
-Run
-
-uv run python -m prynai_mcp.server
-uv run python examples/smoke_http_phase1.py
-
-
-Expected result
-
-RESOURCES: ['prynai://status','prynai://counter']
-COUNTER: 0
-COUNTER_AFTER: 2
-PROMPT TEXT: Write a concise, formal summary. Document title: MCP Phase 1 ...
-SAMPLING RESULT: MOCK:...  # if client sampler provided; otherwise "sampling unavailable"
-
-
-Phase 2 — Containerization + Redis sessions
-
-Outcome
-
-Containerized ASGI app with /mcp, /healthz, /livez.
-
-Redis-backed state for shared counter and persistence across restarts.
-
-Lazy Redis init for reliable startup.
-
-What we added
-
-app.py wraps mcp.streamable_http_app() and wires health routes, CORS, and Redis lifecycle.
-
-redis_client.py with ensure_redis().
-
-docker-compose.yml with mcp and redis.
-
-Dockerfile using Uvicorn (--lifespan on).
-
-
-Run
-
-docker compose up -d --build
-curl http://127.0.0.1:8000/healthz     # {"status":"ok","redis":true}
-uv run python examples/smoke_http_phase1.py
-docker compose restart mcp
-uv run python examples/smoke_http_phase1.py   # counter persists
-
-
-Expected result
-
-COUNTER: 2
-COUNTER_AFTER: 4
-...
-# after restart:
-COUNTER: 4
-COUNTER_AFTER: 6
-
-
-Using with VS Code Copilot Agent Mode
-
-Workspace config: mcp.json
-
-{
-  "servers": {
-    "prynai-mcp": { "type": "http", "url": "http://127.0.0.1:8000/mcp" }
-  }
-}
-
-
-Start the server first (local or Docker).
-
-In Agent Mode, tools from prynai-mcp appear under Tools.
-
-
-## Phase 3 — OAuth 2.0 (Entra ID) + HTTPS
-
-### Outcome
-- `/mcp` protected by Microsoft Entra ID (OAuth 2.0, JWT).
-- Optional HTTPS with local certs.
-- Health endpoints stay open.
-
-### What changed
-- `auth/azure_oauth.py`: JWT validate via tenant JWKS. Enforce issuer, audience, optional scopes/roles.
-- `auth/middleware.py`: Bearer auth on `/mcp`. Health paths bypassed.
-- `app.py`: plugs middleware. Keeps Redis, CORS, health.
-- `examples/smoke_oauth_cc.py`: client-credentials smoke using MSAL.
-
-### Entra prerequisites
-1. **Server app** (exposes API). Note its **Application (client) ID**.
-2. **Client app** with **application permission** to the server app.
-3. **Admin consent** granted for that permission.
-4. Tenant ID available.
-
-### Config (docker-compose)
-```version: "3.9"
-services:
-  redis:
-    image: redis:7-alpine
-    command: ["redis-server", "--appendonly", "yes"]
-    volumes:
-      - redisdata:/data
-    ports:
-      - "6379:6379"
-
-  mcp:
-    build:
-      context: .
-      dockerfile: infra/docker/Dockerfile
-    environment:
-      - REDIS_URL=${REDIS_URL}
-      - PRYNAI_ENV=container
-      - PRYNAI_BUILD=${GIT_COMMIT:-local}
-      - AUTH_REQUIRED=true               # enforce OAuth
-      - ENTRA_TENANT_ID=${ENTRA_TENANT_ID}
-      - ENTRA_AUDIENCES=${SERVER_APP_ID} # or the server app's client-id
-      # Optional scope/role checks:
-      # - ENTRA_REQUIRED_SCOPES=Mcp.Invoke
-      # - ENTRA_REQUIRED_APP_ROLES=Mcp.Invoke
-      # HTTPS (optional)
-      # Comment these lines to serve HTTP on 8000 instead
-      - SSL_CERTFILE=/certs/127.0.0.1+1.pem
-      - SSL_KEYFILE=/certs/127.0.0.1+1-key.pem
-    volumes:
-      - ./certs:/certs:ro
-    ports:
-      - "8443:8443"    # HTTPS
-      - "8000:8000"
-    depends_on:
-      - redis
-
-volumes:
-  redisdata:
-```
-HTTPS options
-
-HTTP local: simplest. Omit SSL_* vars. Use http://127.0.0.1:8000/mcp.
-
-HTTPS local: generate certs with mkcert. Mount under /certs. Expose 8443.
-To make Python trust mkcert:
-setx SSL_CERT_FILE "C:\Users\riahl\AppData\Local\mkcert\rootCA.pem"
-Then use https://127.0.0.1:8443/mcp.
-
-Run
-```
-docker compose up -d --build
-# health
-curl -k https://127.0.0.1:8443/healthz   # if HTTPS
-# or
-curl http://127.0.0.1:8000/healthz
+MCP tools discovered: ['add', 'echo', ...]
 ```
 
-Smoke test (client-credentials)
+## Move to Phase 2 to add Redis and stateful behavior.
 
-Set env: Suggestion to create .env file and add configuration to the file 
 
-or for that session set as below 
-```
-$env:ENTRA_TENANT_ID="<tenant-guid>"
-$env:ENTRA_CLIENT_ID="<client-app-guid>"
-$env:ENTRA_CLIENT_SECRET="<client-secret>"
-$env:SERVER_APP_ID_URI="api://<server-app-guid>"
-# pick URL matching your transport
-$env:PRYNAI_MCP_URL="http://127.0.0.1:8000/mcp"
-# or: $env:PRYNAI_MCP_URL="https://127.0.0.1:8443/mcp"
+---
 
-uv run python examples/smoke_oauth_cc.py ## check the right .env path for load_dotenv(dotenv_path="../.env",verbose=True) 
-```
-Expected
-```
-TOOLS: [...]
-ADD RESULT: 15
-STATUS: ok
-```
+### `docs/phase2.md`
 
-VSCode agent testing:
-```
-{
-    "inputs": [
-        {
-            "id": "token",
-            "type": "promptString",
-            "title": "Paste an access token",
-            "description": "Get a token via MSAL client credentials",
-            "password": true
-        }
-    ],
-    "servers": {
-        "PrynAI MCP": {
-            "type": "http",
-            "url": "https://127.0.0.1:8443/mcp",
-            "headers": {
-                "Authorization": "Bearer ${input:token}"
-            }
-        }
-    }
-}
+```markdown
+# Phase 2 — Redis state (counter)
+
+## Goal
+Add Redis to persist state and expose a counter as an MCP resource/tool.
+
+## What you get
+- Redis connection (via `REDIS_URL` or host/port/password)
+- `bump_counter` tool
+- `prynai://counter` resource
+
+## Prereqs
+- A Redis instance (local or cloud)
+- Update `.env` with Redis settings
+
+## Run locally
+bash
+# Option A: docker compose (includes Redis)
+docker compose up --build
+
+# Option B: your own Redis, run server with uv
+uv run python examples/use_core_list_tools.py
+uv run python examples/use_core_langchain_agent.py
 ```
 
-Common 401 causes : 
-
-aud mismatch: set ENTRA_AUDIENCES to the server app GUID
-
-copes enforced for CC: client-credentials tokens lack scp. Do not set ENTRA_REQUIRED_SCOPES here.
-
-roles enforced but not granted: either grant the app role and admin consent, or clear ENTRA_REQUIRED_APP_ROLES.
+### Smoke
 
 
-## Phase 4 — Azure Container Apps (ACA) + Azure Cache for Redis
+# List tools and call counter
+uv run python examples/use_core_list_tools.py
+# Expect 'bump_counter' and resource 'prynai://counter'
 
-### Outcome
+## Troubleshooting
 
-PrynAI MCP runs on ACA with public HTTPS /mcp.
-Redis-backed sessions on Azure Cache for Redis.
-OAuth2 enforced by Entra ID. Health probes exposed.
+- If counter doesn’t change, verify Redis connectivity and credentials.
 
-### What we deployed
-
-ACA environment + app: public ingress on 443, app listens on 8000.
-
-Azure Cache for Redis: TLS on 6380. App reads REDIS_URL at startup.
-
-Health endpoints: /healthz returns {"status":"ok","redis":<bool>}; /livez always ok.
-
-MCP surface: tools add, echo, long_task, summarize_via_client_llm, bump_counter; resources prynai://status, prynai://counter; prompt quick_summary.
-
-### Prerequisites
-
-Azure CLI logged in and subscription selected.
-
-Docker Desktop running.
-
-Entra apps created:
-
-Server app exposing API (use its GUID and api://<GUID>).
-
-Client app with application permission to server API and admin consent granted.
-
-.env contains:
-
-ENTRA_TENANT_ID, ENTRA_CLIENT_ID, ENTRA_CLIENT_SECRET, SERVER_APP_ID_URI, SERVER_APP_ID.
+- Make sure the server process can reach Redis from its network.
 
 
-### Deploy
-Set required env and run the script:
+---
+
+### `docs/phase3.md`
+
+```markdown
+# Phase 3 — OAuth (Entra ID client credentials)
+
+## Goal
+Protect `/mcp` with Entra ID (Azure AD) OAuth2 (client credentials flow).
+
+## What you get
+- Server validates `Authorization: Bearer <token>`
+- Example client code to fetch tokens via `msal`
+
+## Configure Entra
+- **App registrations**: one for the server (expose API), one for the client
+- Record:
+  - `ENTRA_TENANT_ID`
+  - `ENTRA_CLIENT_ID`, `ENTRA_CLIENT_SECRET` (client app)
+  - `SERVER_APP_ID_URI` (e.g., `api://<server-app-id>`)
+
+Update `.env`:
 ```
 
-.\infra\azure\deploy_aca.ps1
-
-```
-
-The script builds and pushes the image to a new ACR, creates Redis, creates ACA Env and App, wires secrets and env, and prints the FQDN.
-
-Note the outputs:
+### ENTRA_TENANT_ID=...
+### ENTRA_CLIENT_ID=...
+### ENTRA_CLIENT_SECRET=...
+### SERVER_APP_ID_URI=api://...
 
 
-```
-ACA FQDN: <name>.<hash>.eastus.azurecontainerapps.io
-MCP URL:  https://<fqdn>/mcp
-```
-
-### Health check
-```
-curl https://<fqdn>/healthz
-# -> {"status":"ok","redis":true}
-
-If redis:false, validate the secret format rediss://:<key>@<host>:6380/0 and restart the app.
-```
-
-### Smoke test (client-credentials, cloud)
-
-Use the ACA smoke client. It fetches a token with MSAL and calls the remote MCP.
-
-```
+## Smoke
+```bash
 uv run python examples/smoke_oauth_ccACADeployment.py
-# Expected:
-# TOOLS: [...]
-# ADD RESULT: 15
-# STATUS: ok
-
+# Shows 401 if missing token, 200 with token; lists tools & reads resources.
 ```
 
-### Token generator (optional) to inspect aud, iss, roles
+## Troubleshooting
+
+- 401/missing_or_malformed: check Authorization header and scopes (<SERVER_APP_ID_URI>/.default).
+
+- SSL issues: ensure you haven’t set custom CA/proxy envs locally unless intended.
+
+
+---
+
+### `docs/phase4.md`
+
+```markdown
+# Phase 4 — Azure Container Apps deployment
+
+## Goal
+Deploy the MCP server to **Azure Container Apps (ACA)**, use **Azure Container Registry (ACR)** for images, and wire **Redis** & OAuth secrets.
+
+## Azure resources (example names)
+- RG: `prynai-mcp-rg`
+- ACA Env: `prynai-aca-env`
+- Container App: `prynai-mcp` → `https://<fqdn>/mcp`
+- ACR: `prynaiacr44058.azurecr.io`
+- Azure Cache for Redis: e.g., `prynai-redis.redis.cache.windows.net`
+
+## First-time deploy
+Use `infra/azure/deploy_aca.ps1` (provisions env/app + initial image). Fill environment in the script or pass parameters as needed.
+
+## Updating (safe rollout)
+Use **remote build** + **revision traffic** via:
+```powershell
+.\infra\azure\deploy_update.ps1 -Tag 0.5.0-phase5
+# Script prints a new revision FQDN for smoke tests and the promote command.
+
+### What the update script does:
+
+- Builds a new image in ACR (no local Docker needed).
+
+- Creates a new ACA revision with that image.
+
+- Keeps multiple revisions enabled for safe testing.
+
+- You manually promote traffic to 100% when satisfied.
+
+
+## Promote to 100%
+
+### The script prints the exact az containerapp ingress traffic set ... command with the new revision name.
+
+## Troubleshooting
+
+- If a revision gets a new sub-FQDN, that’s expected in “multiple revisions” mode. Your stable app URL stays the same once you promote.
+
+
+---
+
+### `docs/phase5.md`
+
+```markdown
+# Phase 5 — Agents (LangGraph & LangChain) + LangSmith
+
+## Goal
+Demonstrate agents that **discover and call MCP tools** and prompts. Show both **LangGraph** and **LangChain** flows. Optional **LangSmith** tracing.
+
+## What you get
+- `examples/phase5_langgraph_smoke.py`: 5-step graph
+  1) Acquire Entra token
+  2) List tools
+  3) Call `add`
+  4) Read `prynai://status` & `prynai://counter`
+  5) Render `quick_summary` and ask OpenAI to summarize
+- `examples/phase5_langchain_create_agent_alltools_smoke.py`: build **all** MCP tools into LangChain tools and let the agent pick
+- `examples/use_core_langchain_agent.py`: minimal `create_agent` usage
+- `src/prynai/mcp_core.py`: **reusable** building block to:
+  - fetch token
+  - create MCP sessions
+  - convert MCP tool catalog → LangChain tools (with Pydantic arg models)
+  - (Optionally) return a single “add-only” tool if you want a scoped agent
+
+## Env
 ```
-uv run python examples/Generatetoken.py
+
+PRYNAI_MCP_URL=https://<your-aca-fqdn>/mcp
+ENTRA_TENANT_ID=...
+ENTRA_CLIENT_ID=...
+ENTRA_CLIENT_SECRET=...
+SERVER_APP_ID_URI=api://...
+OPENAI_API_KEY=...
+OPENAI_MODEL=gpt-4o-mini
+
+## Optional LangSmith
+
+LANGCHAIN_TRACING_V2=true
+LANGSMITH_API_KEY=...
+LANGSMITH_PROJECT=PrynAI-MCP
+
+
+## Run
+```bash
+uv run python examples/phase5_langgraph_smoke.py
+uv run python examples/phase5_langchain_create_agent_alltools_smoke.py
+uv run python examples/use_core_langchain_agent.py
 ```
 
-### VS Code Agent Mode
-Use a header token, not dynamic registration.
+## Adding new tools
 
-```
-{
-    "inputs": [
-        {
-            "id": "token",
-            "type": "promptString",
-            "title": "Paste an access token",
-            "description": "Get a token via MSAL client credentials",
-            "password": true
-        }
-    ],
-    "servers": {
-        "PrynAI MCP": {
-            "type": "http",
-            "url": "https://prynai-mcp.purplegrass-10f29d71.eastus.azurecontainerapps.io/mcp",
-            "headers": {
-                "Authorization": "Bearer ${input:token}"
-            }
-        }
-    }
-}
+- Implement sync or async functions in server.py. Both work.
 
-Generate a token with the helper, paste when prompted.
-```
+- Register them like existing tools; include helpful docstrings (agents read these).
 
-### Operate
+- If args are structured, ensure they’re validated server-side (Pydantic or your schema).
 
-Logs and scale:
-```
-az containerapp logs show -g <rg> -n prynai-mcp --follow
-az containerapp update    -g <rg> -n prynai-mcp --min-replicas 2 --max-replicas 10
-```
-
-Roll a new image:
-```
-$acr = (az acr list -g <rg> --query "[0].loginServer" -o tsv)
-docker build -f infra/docker/Dockerfile -t $acr/prynai-mcp:phase4 .
-az acr login -n ($acr.Split('.')[0])
-docker push $acr/prynai-mcp:phase4
-az containerapp update -g <rg> -n prynai-mcp --image $acr/prynai-mcp:phase4
-
-```
-
-### Troubleshooting
-
-401: Token audience mismatch. ACA expects ENTRA_AUDIENCES to include <server-app-guid> and api://<server-app-guid>. Token aud must match. Auth middleware returns structured 401 with WWW-Authenticate.
-
-Not Acceptable: Client must accept text/event-stream: You hit /mcp with curl. Use the MCP client or the smoke script. Health checks use /healthz.
-
-Redis stays false: Wrong REDIS_URL or missing hostname. Fix secret and restart.
-
-TLS errors from client: Remove local overrides like SSL_CERT_FILE or REQUESTS_CA_BUNDLE. The ACA cert is a public Microsoft chain.
-
-Proxy interference: The ACA smoke clears proxy envs before connecting. Use it as-is
-
-
-### Source map (phase 4 relevant)
-
-Server surface and tools: src/prynai_mcp/server.py.
-
-App factory, health, CORS, auth wiring: src/prynai_mcp/app.py.
-
-Redis client: src/prynai_mcp/redis_client.py.
-
-OAuth config and middleware: src/prynai_mcp/config.py, src/prynai_mcp/auth/azure_oauth.py, src/prynai_mcp/auth/middleware.py.
-
-Cloud smoke: examples/smoke_oauth_ccACADeployment.py.
-
-This phase delivers a production entry on Azure with Redis-backed state, OAuth, and health visibility
-
-
-
-
-
-
-
-
+- Re-deploy with infra/azure/deploy_update.ps1 -Tag <new-tag> and smoke test the new revision before promoting.
 
 
 

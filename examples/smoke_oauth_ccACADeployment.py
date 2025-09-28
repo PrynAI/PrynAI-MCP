@@ -10,9 +10,10 @@ def clear_proxy_env() -> None:
         os.environ.pop(k, None)
 
 # load .env once
-load_dotenv(dotenv_path="../.env", verbose=True)
+load_dotenv(dotenv_path="./.env", verbose=True)
 clear_proxy_env()  # bypass corporate proxy for this process
 
+# SERVER = os.getenv("PRYNAI_MCP_URL", "https://prynai-mcp.purplegrass-10f29d71.eastus.azurecontainerapps.io/mcp")
 SERVER = os.getenv("PRYNAI_MCP_URL", "https://prynai-mcp.purplegrass-10f29d71.eastus.azurecontainerapps.io/mcp")
 TENANT_ID = os.environ["ENTRA_TENANT_ID"]
 CLIENT_ID = os.environ["ENTRA_CLIENT_ID"]

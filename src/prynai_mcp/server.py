@@ -41,6 +41,28 @@ def add(a: int, b: int) -> int:
     """Add two integers."""
     return a + b
 
+@mcp.tool()
+def multiply(a: int, b: int) -> int:
+    """Multiply two integers."""
+    return a * b
+
+@mcp.tool()
+async def divide(a: float, b: float, ctx: Context[ServerSession, None]) -> float:
+    """Divide a by b. Emits a warning on b=0."""
+    if b == 0:
+        await ctx.warning("divide: division by zero")
+        return float("nan")
+    return a / b
+
+@mcp.tool()
+async def slow_square(n: int, ctx: Context[ServerSession, None]) -> int:
+    """Square an integer while reporting progress in steps."""
+    steps = max(3, min(20, abs(n)))  # demo progress
+    for i in range(steps):
+        await asyncio.sleep(0.1)
+        await ctx.report_progress(progress=(i + 1) / steps, total=1.0, message=f"step {i + 1}/{steps}")
+    return n * n
+
 
 @mcp.tool()
 async def echo(message: str, ctx: Context[ServerSession, None]) -> str:
@@ -75,6 +97,16 @@ async def summarize_via_client_llm(text: str, ctx: Context[ServerSession, None])
         await ctx.warning(f"sampling unavailable: {e}")
         return "sampling unavailable"
     
+# If a tool updates shared state, you can ping subscribers (like bump_counter does).
+# Example: set the counter to an exact value and notify:
+@mcp.tool()
+async def set_counter(value: int, ctx: Context[ServerSession, None]) -> int:
+    """Set the server counter to an exact integer value and notify subscribers."""
+    r = await ensure_redis()
+    await r.set("prynai:counter", value)
+    await ctx.session.send_resource_updated("prynai://counter")
+    await ctx.info(f"counter set -> {value}")
+    return value
 
 # update bump_counter to use Redis and notify
 @mcp.tool()

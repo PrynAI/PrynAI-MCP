@@ -100,7 +100,7 @@ az redis create -n $RedisName -g $ResourceGroup --location $Location --sku Basic
 $redisHost = az redis show -n $RedisName -g $ResourceGroup --query hostName -o tsv
 $redisKey = az redis list-keys -n $RedisName -g $ResourceGroup --query primaryKey -o tsv
 if (-not $redisHost -or -not $redisKey) { throw "Redis not provisioned" }
-$REDIS_URL = "rediss://:$redisKey@$redisHost:6380/0"
+$REDIS_URL = "rediss://:${redisKey}@${redisHost}:6380/0"
 
 # ACA env
 az containerapp env create -g $ResourceGroup -n $EnvName -l $Location | Out-Null

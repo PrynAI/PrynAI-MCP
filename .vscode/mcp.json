@@ -11,7 +11,7 @@
     "servers": {
         "PrynAI MCP": {
             "type": "http",
-            "url": "https://prynai-mcp.purplegrass-10f29d71.eastus.azurecontainerapps.io/mcp",
+            "url": "https://mcp.prynai.com/mcp",
             "headers": {
                 "Authorization": "Bearer ${input:token}"
             }
